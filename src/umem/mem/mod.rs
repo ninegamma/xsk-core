@@ -62,5 +62,11 @@ impl UmemRegion {
         self.addr.as_ptr()
     }
 
+    /// Duplicate the file descriptor backing this region.
+    #[inline]
+    pub fn duplicate_fd(&self) -> io::Result<std::os::fd::RawFd> {
+        self._mmap.lock().unwrap().duplicate_fd()
+    }
+
 
 }

@@ -5,10 +5,10 @@ use std::{io, ptr::NonNull};
 #[cfg(not(test))]
 mod inner {
     use libc::{
-        MAP_ANONYMOUS, MAP_FAILED, MAP_HUGETLB, MAP_POPULATE, MAP_SHARED, PROT_READ, PROT_WRITE,
+        MAP_FAILED, MAP_HUGETLB, MAP_POPULATE, MAP_SHARED, PROT_READ, PROT_WRITE,
     };
     use log::error;
-    use std::ptr;
+    use std::{ffi::CString, os::fd::RawFd, ptr};
 
     use super::*;
 
@@ -17,19 +17,33 @@ mod inner {
     pub struct Mmap {
         addr: NonNull<libc::c_void>,
         len: usize,
+        fd: RawFd,
     }
 
     unsafe impl Send for Mmap {}
 
     impl Mmap {
         pub fn new(len: usize, use_huge_pages: bool) -> io::Result<Self> {
-            // MAP_ANONYMOUS: mapping not backed by a file.
-            // MAP_SHARED: shares this mapping, so changes are visible
-            // to other processes mapping the same file.
-            // MAP_POPULATE: pre-populate page tables, reduces
-            // blocking on page faults later.
-            let mut flags = MAP_ANONYMOUS | MAP_SHARED | MAP_POPULATE;
+            // A memfd gives the UMEM stable backing pages which can be mapped
+            // at a different virtual address for each Wasm instance.
+            let name = CString::new("xsk-umem").expect("static memfd name has no nul");
+            let memfd_flags = if use_huge_pages {
+                libc::MFD_CLOEXEC | libc::MFD_HUGETLB
+            } else {
+                libc::MFD_CLOEXEC
+            };
+            let fd = unsafe { libc::memfd_create(name.as_ptr(), memfd_flags) };
+            if fd < 0 {
+                return Err(io::Error::last_os_error());
+            }
+            let truncate_result = unsafe { libc::ftruncate(fd, len as libc::off_t) };
+            if truncate_result != 0 {
+                let error = io::Error::last_os_error();
+                unsafe { libc::close(fd) };
+                return Err(error);
+            }
 
+            let mut flags = MAP_SHARED | MAP_POPULATE;
             if use_huge_pages {
                 flags |= MAP_HUGETLB;
             }
@@ -38,20 +52,22 @@ mod inner {
                 libc::mmap(
                     ptr::null_mut(),
                     len,
-                    PROT_READ | PROT_WRITE, // prot
+                    PROT_READ | PROT_WRITE,
                     flags,
-                    -1, // file
-                    0,  // offset
+                    fd,
+                    0,
                 )
             };
 
             if addr == MAP_FAILED {
-                Err(io::Error::last_os_error())
+                let error = io::Error::last_os_error();
+                unsafe { libc::close(fd) };
+                Err(error)
             } else {
                 let addr =
                     NonNull::new(addr).expect("ptr non-null since we confirmed `mmap()` succeeded");
 
-                Ok(Mmap { addr, len })
+                Ok(Mmap { addr, len, fd })
             }
         }
 
@@ -59,6 +75,15 @@ mod inner {
         #[inline]
         pub fn addr(&self) -> NonNull<libc::c_void> {
             self.addr
+        }
+
+        pub fn duplicate_fd(&self) -> io::Result<RawFd> {
+            let fd = unsafe { libc::fcntl(self.fd, libc::F_DUPFD_CLOEXEC, 0) };
+            if fd < 0 {
+                Err(io::Error::last_os_error())
+            } else {
+                Ok(fd)
+            }
         }
     }
 
@@ -72,6 +97,7 @@ mod inner {
                     io::Error::last_os_error()
                 );
             }
+            unsafe { libc::close(self.fd) };
         }
     }
 }
@@ -122,6 +148,10 @@ mod inner {
         #[inline]
         pub fn addr(&self) -> NonNull<libc::c_void> {
             NonNull::new(self.0.ptr.as_ptr() as *mut libc::c_void).unwrap()
+        }
+
+        pub fn duplicate_fd(&self) -> io::Result<std::os::fd::RawFd> {
+            Err(io::Error::new(io::ErrorKind::Unsupported, "test mmap has no fd"))
         }
     }
 }

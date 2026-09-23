@@ -396,6 +396,13 @@ impl Umem {
     pub fn as_ptr(&self) -> *const u8 {
         self.mem.as_ptr() as *const u8
     }
+
+    /// Returns a duplicated FD for mapping the same UMEM pages at another
+    /// virtual address. The caller owns the returned FD.
+    #[inline]
+    pub fn backing_fd(&self) -> io::Result<std::os::fd::RawFd> {
+        self.mem.duplicate_fd()
+    }
 }
 
 /// What libxdp did with the fill and comp rings it was handed when
