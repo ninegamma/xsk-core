@@ -50,6 +50,27 @@ should provide those concerns at a higher layer.
 - Removed integration tests that depended on the removed high-level
   frame-memory API.
 
+### Shared UMEM mappings
+
+On Linux, `xsk-core` backs each UMEM with a `memfd` and maps that file into the
+process address space. The original mapping is used by AF_XDP as usual, while
+additional mappings can alias the same pages without copying packet data.
+This makes it possible for multiple execution environments, such as Wasm
+instances, to share one UMEM while keeping their virtual address layouts
+independent.
+
+`Umem::backing_fd()` returns a duplicated raw file descriptor for the backing
+`memfd`. The caller owns the returned descriptor and must close it, or convert
+it immediately into an owned descriptor such as `std::os::fd::OwnedFd`. The
+descriptor can be passed to `mmap()` with `MAP_SHARED` at another address; the
+mapping must cover the same UMEM length and begin at file offset zero.
+
+The file descriptor is only an alternative handle to the existing pages. It
+does not create another AF_XDP UMEM registration, and descriptor addresses
+remain offsets relative to the original UMEM. The original `Umem` must remain
+alive while aliases are in use, and all mappings must obey the normal AF_XDP
+ownership rules described below.
+
 ## Relationship to the original project
 
 The original project remains the reference for the inherited AF_XDP socket and
