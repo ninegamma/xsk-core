@@ -60,26 +60,9 @@ impl FillQueue {
     /// [`Umem`]: super::Umem
     #[inline]
     pub unsafe fn produce(&mut self, addrs: &[u64]) -> usize {
-        let nb = addrs.len() as u32;
-
-        if nb == 0 {
-            return 0;
-        }
-
-        let mut idx = 0;
-
-        let cnt = unsafe { libxdp_sys::xsk_ring_prod__reserve(self.ring.as_ptr(), nb, &mut idx) };
-
-        if cnt > 0 {
-            // SAFETY: reserve returned `cnt` slots beginning at `idx`, and
-            // the ring remains exclusively borrowed through `self` until
-            // the addresses are copied and submitted below.
-            unsafe { copy_fill_addrs(self.ring.as_ptr(), idx, &addrs[..cnt as usize]) };
-
-            unsafe { libxdp_sys::xsk_ring_prod__submit(self.ring.as_ptr(), cnt) };
-        }
-
-        cnt as usize
+        // SAFETY: this queue owns the ring and the caller upholds the same
+        // address and aliasing requirements as the raw-ring helper.
+        unsafe { produce_on_ring(&mut self.ring, addrs) }
     }
 
     /// Same as [`produce`] but for a single frame address.
@@ -217,6 +200,27 @@ impl FillQueue {
     pub fn needs_wakeup(&self) -> bool {
         unsafe { libxdp_sys::xsk_ring_prod__needs_wakeup(self.ring.as_ptr()) != 0 }
     }
+}
+
+/// Populate a fill ring before the AF_XDP socket is bound.
+///
+/// The socket creation path uses this while it still owns the UMEM's saved
+/// fill ring. Keeping this operation here ensures it has exactly the same
+/// reserve/copy/submit semantics as [`FillQueue::produce`].
+#[inline]
+pub(crate) unsafe fn produce_on_ring(ring: &mut XskRingProd, addrs: &[u64]) -> usize {
+    let nb = addrs.len() as u32;
+    if nb == 0 {
+        return 0;
+    }
+
+    let mut idx = 0;
+    let cnt = unsafe { libxdp_sys::xsk_ring_prod__reserve(ring.as_ptr(), nb, &mut idx) };
+    if cnt > 0 {
+        unsafe { copy_fill_addrs(ring.as_ptr(), idx, &addrs[..cnt as usize]) };
+        unsafe { libxdp_sys::xsk_ring_prod__submit(ring.as_ptr(), cnt) };
+    }
+    cnt as usize
 }
 
 /// Copies a batch of frame addresses into the fill ring while handling

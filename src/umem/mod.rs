@@ -9,6 +9,7 @@ use frame::FrameDesc;
 
 mod fill_queue;
 pub use fill_queue::FillQueue;
+pub(crate) use fill_queue::produce_on_ring;
 
 mod comp_queue;
 pub use comp_queue::CompQueue;

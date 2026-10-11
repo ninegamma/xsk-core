@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.2.1] - 2026-10-11
+
+### Added
+
+- `Socket::new_with_initial_fill` accepts UMEM frame addresses to place in the
+  fill ring before the AF_XDP socket is bound. This lets drivers see available
+  RX buffers during XSK pool registration; the existing `Socket::new` API is
+  unchanged.
+
+### Changed
+
+- Fill-ring address submission now uses a shared helper for both normal queue
+  production and preloading during socket creation.
+
+### Fixed
+
+- Avoided `ice` driver warnings during XSK pool registration by pre-filling the
+  AF_XDP fill ring before binding the socket.
+
 ## [0.2.0] - 2026-09-24
 
 Version 0.2.0 builds on the 0.1.0 hard-fork baseline and focuses on the

@@ -61,6 +61,6 @@ While `XDP_PACKET_HEADROOM` is primarily used by the kernel and eBPF on the **Rx
 
 ### Practical Application for TCP Data Planes
 
-For a high-throughput TCP data plane such as wabrix running on an Intel 25G NIC with the `ice` driver, software TCP checksum calculation can be a significant CPU cost.
+For a high-throughput TCP data plane, software TCP checksum calculation can be a significant CPU cost.
 
 By configuring `tx_metadata_len = sizeof(struct xsk_tx_metadata)` during UMEM registration, the application reserves space for this metadata. Before transmitting a batch of TCP packets, a Rust application can populate the `xsk_tx_metadata` structure immediately before the packet payload and set the flags required for hardware checksum offload. When the packet reaches the `ice` driver on a kernel supporting this metadata path, the driver can ask the E830 NIC to calculate and insert the TCP checksum in hardware, reducing user-space CPU overhead.

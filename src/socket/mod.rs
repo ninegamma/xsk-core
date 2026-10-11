@@ -20,7 +20,7 @@ use std::{
 use crate::{
     config::{Interface, SocketConfig},
     ring::{XskRingCons, XskRingConsHandle, XskRingProd, XskRingProdHandle},
-    umem::{CompQueue, CtxRings, FillQueue, Umem},
+    umem::{self, CompQueue, CtxRings, FillQueue, Umem},
 };
 
 /// An AF_XDP socket, along with everything libxdp dereferences when
@@ -152,12 +152,40 @@ impl Socket {
         if_name: &Interface,
         queue_id: u32,
     ) -> Result<(TxQueue, RxQueue, Option<(FillQueue, CompQueue)>), SocketCreateError> {
+        unsafe { Self::new_with_initial_fill(config, umem, if_name, queue_id, &[]) }
+    }
+
+    /// Create and bind an AF_XDP socket after placing initial addresses in
+    /// the UMEM fill ring.
+    ///
+    /// The addresses are submitted before the driver sees the socket during
+    /// `xsk_socket__create_shared`. This matters for drivers that inspect the
+    /// fill ring while registering the XSK pool.
+    ///
+    /// # Safety
+    ///
+    /// The same requirements as [`Socket::new`] apply. Every address must
+    /// belong to `umem`, and callers must ensure that the addresses are not
+    /// concurrently submitted to another queue.
+    #[allow(clippy::type_complexity)]
+    pub unsafe fn new_with_initial_fill(
+        config: SocketConfig,
+        umem: &Umem,
+        if_name: &Interface,
+        queue_id: u32,
+        initial_addrs: &[u64],
+    ) -> Result<(TxQueue, RxQueue, Option<(FillQueue, CompQueue)>), SocketCreateError> {
         let mut socket_ptr = ptr::null_mut();
         let tx_q = XskRingProd::default();
         let rx_q = XskRingCons::default();
 
         let rings = umem
             .with_ptr_and_fq_and_cq(|xsk_umem, fq, cq| unsafe {
+                // Populate the saved UMEM fill ring before binding. The ice
+                // driver checks the available addresses during registration.
+                if !initial_addrs.is_empty() {
+                    umem::produce_on_ring(fq, initial_addrs);
+                }
                 libxdp_sys::xsk_socket__create_shared(
                     &mut socket_ptr,
                     if_name.as_cstr().as_ptr(),
