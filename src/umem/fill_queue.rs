@@ -1,0 +1,226 @@
+use std::io;
+
+use crate::{
+    ring::{self, XskRingProd},
+    socket::{Fd, Socket},
+};
+
+use super::frame::FrameDesc;
+
+/// Used to transfer ownership of [`Umem`](super::Umem) frames from
+/// user-space to kernel-space.
+///
+/// These frames will be used to receive packets, and will eventually
+/// be returned via the [`RxQueue`](crate::socket::RxQueue).
+///
+/// Holding on to this queue keeps the socket it was created with
+/// alive, since libxdp unmaps the fill ring only when the last socket
+/// created from the same [`Umem`](super::Umem) and bound to the same
+/// device and queue id is deleted. Dropping every other handle to
+/// that socket therefore will not release the device; this queue and
+/// the one returned alongside it have to go too.
+///
+/// For more information see the
+/// [docs](https://www.kernel.org/doc/html/latest/networking/af_xdp.html#umem-fill-ring).
+#[derive(Debug)]
+pub struct FillQueue {
+    ring: XskRingProd,
+    _socket: Socket,
+}
+
+impl FillQueue {
+    pub(crate) fn new(ring: XskRingProd, socket: Socket) -> Self {
+        Self {
+            ring,
+            _socket: socket,
+        }
+    }
+
+    /// Let the kernel know that the [`Umem`] frames described by
+    /// `descs` may be used to receive data. Returns the number of
+    /// frames submitted to the kernel.
+    ///
+    /// Note that if the length of `descs` is greater than the number
+    /// of available spaces on the underlying ring buffer then no
+    /// frames at all will be handed over to the kernel.
+    ///
+    /// Once the frames have been submitted to this queue they should
+    /// not be used again until consumed via the [`RxQueue`].
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe as it is possible to cause a data race
+    /// if used improperly. For example, by simultaneously submitting
+    /// the same frame descriptor to this `FillQueue` and the
+    /// [`TxQueue`].
+    ///
+    /// Furthermore, the frames passed to this queue must belong to
+    /// the same [`Umem`] that this `FillQueue` instance is tied to.
+    ///
+    /// [`TxQueue`]: crate::TxQueue
+    /// [`RxQueue`]: crate::RxQueue
+    /// [`Umem`]: super::Umem
+    #[inline]
+    pub unsafe fn produce(&mut self, descs: &[FrameDesc]) -> usize {
+        let nb = descs.len() as u32;
+
+        if nb == 0 {
+            return 0;
+        }
+
+        let mut idx = 0;
+
+        let cnt = unsafe { libxdp_sys::xsk_ring_prod__reserve(self.ring.as_ptr(), nb, &mut idx) };
+
+        if cnt > 0 {
+            for desc in descs.iter().take(cnt as usize) {
+                unsafe {
+                    *libxdp_sys::xsk_ring_prod__fill_addr(self.ring.as_ptr(), idx) =
+                        desc.addr as u64
+                };
+
+                idx = idx.wrapping_add(1);
+            }
+
+            unsafe { libxdp_sys::xsk_ring_prod__submit(self.ring.as_ptr(), cnt) };
+        }
+
+        cnt as usize
+    }
+
+    /// Same as [`produce`] but for a single frame descriptor.
+    ///
+    /// # Safety
+    ///
+    /// See [`produce`].
+    ///
+    /// [`produce`]: Self::produce
+    #[inline]
+    pub unsafe fn produce_one(&mut self, desc: &FrameDesc) -> usize {
+        let mut idx = 0;
+
+        let cnt = unsafe { libxdp_sys::xsk_ring_prod__reserve(self.ring.as_ptr(), 1, &mut idx) };
+
+        if cnt > 0 {
+            unsafe {
+                *libxdp_sys::xsk_ring_prod__fill_addr(self.ring.as_ptr(), idx) = desc.addr as u64
+            };
+
+            unsafe { libxdp_sys::xsk_ring_prod__submit(self.ring.as_ptr(), cnt) };
+        }
+
+        cnt as usize
+    }
+
+    /// Same as [`produce`] but wake up the kernel if required to let
+    /// it know there are frames available that may be used to receive
+    /// data.
+    ///
+    /// For more details see the
+    /// [docs](https://www.kernel.org/doc/html/latest/networking/af_xdp.html#xdp-use-need-wakeup-bind-flag).
+    ///
+    /// # Safety
+    ///
+    /// See [`produce`].
+    ///
+    /// [`produce`]: Self::produce
+    #[inline]
+    pub unsafe fn produce_and_wakeup(
+        &mut self,
+        descs: &[FrameDesc],
+        socket_fd: &mut Fd,
+        poll_timeout: i32,
+    ) -> io::Result<usize> {
+        let cnt = unsafe { self.produce(descs) };
+
+        if cnt > 0 && self.needs_wakeup() {
+            self.wakeup(socket_fd, poll_timeout)?;
+        }
+
+        Ok(cnt)
+    }
+
+    /// Same as [`produce_and_wakeup`] but for a single frame
+    /// descriptor.
+    ///
+    /// # Safety
+    ///
+    /// See [`produce`].
+    ///
+    /// [`produce_and_wakeup`]: Self::produce_and_wakeup
+    /// [`produce`]: Self::produce
+    #[inline]
+    pub unsafe fn produce_one_and_wakeup(
+        &mut self,
+        desc: &FrameDesc,
+        socket_fd: &mut Fd,
+        poll_timeout: i32,
+    ) -> io::Result<usize> {
+        let cnt = unsafe { self.produce_one(desc) };
+
+        if cnt > 0 && self.needs_wakeup() {
+            self.wakeup(socket_fd, poll_timeout)?;
+        }
+
+        Ok(cnt)
+    }
+
+    /// The number of free slots on the ring, cached where possible.
+    ///
+    /// Answers from libxdp's cached consumer position while that
+    /// cache holds at least `nb` slots, and reads the current
+    /// position otherwise. A cached position only ever trails the
+    /// real one, so the count is never an overestimate, and it is
+    /// not capped at `nb`.
+    ///
+    /// See [`nb_free_exact`] for a count that is always up to date.
+    ///
+    /// [`nb_free_exact`]: Self::nb_free_exact
+    #[inline]
+    pub fn nb_free(&mut self, nb: u32) -> u32 {
+        // SAFETY: the ring is initialised and `&mut self` excludes
+        // any other access to it.
+        unsafe { libxdp_sys::xsk_prod_nb_free(self.ring.as_ptr(), nb) }
+    }
+
+    /// The number of free slots on the ring.
+    ///
+    /// Reads the current consumer position rather than a cached one,
+    /// so the count is exact. See [`nb_free`] for the cached count.
+    ///
+    /// [`nb_free`]: Self::nb_free
+    #[inline]
+    pub fn nb_free_exact(&mut self) -> u32 {
+        // SAFETY: the ring is initialised and `&mut self` excludes
+        // any other access to it.
+        unsafe { ring::prod_nb_free_exact(self.ring.as_ptr()) }
+    }
+
+    /// Wake up the kernel to let it know it can continue using the
+    /// fill ring to process received data.
+    ///
+    /// See [`produce_and_wakeup`] for link to docs with further
+    /// explanation.
+    ///
+    /// [`produce_and_wakeup`]: Self::produce_and_wakeup
+    #[inline]
+    pub fn wakeup(&self, fd: &mut Fd, poll_timeout: i32) -> io::Result<()> {
+        fd.poll_read(poll_timeout)?;
+        Ok(())
+    }
+
+    /// Check if the [`XDP_USE_NEED_WAKEUP`] flag is set on the fill
+    /// ring. If so then this means a call to [`wakeup`] will be
+    /// required to continue processing received data.
+    ///
+    /// See [`produce_and_wakeup`] for a link to docs with further
+    /// explanation.
+    ///
+    /// [`produce_and_wakeup`]: Self::produce_and_wakeup
+    /// [`XDP_USE_NEED_WAKEUP`]: libxdp_sys::XDP_USE_NEED_WAKEUP
+    /// [`wakeup`]: Self::wakeup
+    #[inline]
+    pub fn needs_wakeup(&self) -> bool {
+        unsafe { libxdp_sys::xsk_ring_prod__needs_wakeup(self.ring.as_ptr()) != 0 }
+    }
+}
