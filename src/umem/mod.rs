@@ -432,7 +432,10 @@ pub struct UmemCreateError {
 
 impl fmt::Display for UmemCreateError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.reason)
+        match &self.err {
+            Some(err) => write!(f, "{}: {}", self.reason, err),
+            None => write!(f, "{}", self.reason),
+        }
     }
 }
 

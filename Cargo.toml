@@ -1,6 +1,6 @@
 [package]
 name = "xsk-core"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Douglas Gray <dbgray01@gmail.com>", "Rainer Stademann <rainer@spacebandit.de>"]
 edition = "2024"
 description = "Rust bindings for Linux AF_XDP sockets"
