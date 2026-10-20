@@ -156,11 +156,14 @@ impl Socket {
     }
 
     /// Create and bind an AF_XDP socket after placing initial addresses in
-    /// the UMEM fill ring.
+    /// the UMEM fill ring when that ring is already initialized.
     ///
-    /// The addresses are submitted before the driver sees the socket during
-    /// `xsk_socket__create_shared`. This matters for drivers that inspect the
-    /// fill ring while registering the XSK pool.
+    /// When libxdp must create a fill ring for a new interface/queue context,
+    /// the addresses are submitted after socket creation because the ring is
+    /// not initialized before `xsk_socket__create_shared`. When the UMEM's
+    /// saved fill ring is available, the addresses are submitted before that
+    /// call. This matters for drivers that inspect the fill ring while
+    /// registering the XSK pool.
     ///
     /// # Safety
     ///
@@ -178,13 +181,14 @@ impl Socket {
         let mut socket_ptr = ptr::null_mut();
         let tx_q = XskRingProd::default();
         let rx_q = XskRingCons::default();
+        let mut prefilled_addrs = 0;
 
         let rings = umem
             .with_ptr_and_fq_and_cq(|xsk_umem, fq, cq| unsafe {
                 // Populate the saved UMEM fill ring before binding. The ice
                 // driver checks the available addresses during registration.
-                if !initial_addrs.is_empty() {
-                    umem::produce_on_ring(fq, initial_addrs);
+                if !initial_addrs.is_empty() && !fq.is_ring_null() {
+                    prefilled_addrs = umem::produce_on_ring(fq, initial_addrs);
                 }
                 libxdp_sys::xsk_socket__create_shared(
                     &mut socket_ptr,
@@ -251,13 +255,31 @@ impl Socket {
         };
 
         let fq_and_cq = match rings {
-            CtxRings::New(fq, cq) => {
+            CtxRings::New(mut fq, cq) => {
+                // A new interface/queue context receives fresh, uninitialized
+                // rings above. Its fill ring becomes usable only after libxdp
+                // creates the socket, so submit the remaining addresses now.
+                if prefilled_addrs < initial_addrs.len() {
+                    // SAFETY: the method's safety contract guarantees that the
+                    // addresses belong to this UMEM and are not queued elsewhere;
+                    // successful socket creation initialized this exclusively
+                    // borrowed fill ring.
+                    unsafe {
+                        umem::produce_on_ring(&mut fq, &initial_addrs[prefilled_addrs..]);
+                    }
+                }
                 let fq = FillQueue::new(fq, socket.clone());
                 let cq = CompQueue::new(cq, socket);
 
                 Some((fq, cq))
             }
-            CtxRings::Existing => None,
+            CtxRings::Existing if prefilled_addrs == initial_addrs.len() => None,
+            CtxRings::Existing => {
+                return Err(SocketCreateError {
+                    reason: "initial addresses cannot be submitted to an existing fill ring",
+                    err: None,
+                });
+            }
             CtxRings::Mismatched => {
                 return Err(SocketCreateError {
                     reason: "fill queue xor comp queue ring is null, either both or neither should be non-null",
