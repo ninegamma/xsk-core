@@ -17,9 +17,9 @@ mod tests {
 
     #[test]
     fn check_powers_of_two() {
-        assert_eq!(is_pow_of_two(0), false);
-        assert_eq!(is_pow_of_two(1), true);
-        assert_eq!(is_pow_of_two(2), true);
-        assert_eq!(is_pow_of_two(13), false);
+        assert!(!is_pow_of_two(0));
+        assert!(is_pow_of_two(1));
+        assert!(is_pow_of_two(2));
+        assert!(!is_pow_of_two(13));
     }
 }

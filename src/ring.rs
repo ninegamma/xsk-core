@@ -14,7 +14,7 @@
 
 use std::{cell::UnsafeCell, fmt, ptr, sync::Arc};
 
-use libxdp_sys::{xsk_ring_cons, xsk_ring_prod};
+use xdpcore_sys::{xsk_ring_cons, xsk_ring_prod};
 
 /// The number of free slots on a producer ring.
 ///
@@ -31,7 +31,7 @@ pub(crate) unsafe fn prod_nb_free_exact(ring: *mut xsk_ring_prod) -> u32 {
     // therefore ensures the value returned is always up to date.
     let size = unsafe { (*ring).size };
 
-    unsafe { libxdp_sys::xsk_prod_nb_free(ring, size) }
+    unsafe { xdpcore_sys::xsk_prod_nb_free(ring, size) }
 }
 
 /// The number of entries ready to be consumed on a consumer ring.
@@ -52,8 +52,8 @@ pub(crate) unsafe fn cons_nb_avail_exact(ring: *mut xsk_ring_cons) -> u32 {
     // did not know about. Together, we have the number of consumable
     // frames at this point in time.
     let n = unsafe {
-        libxdp_sys::xsk_ring_cons__peek(ring, size, &mut idx)
-            + libxdp_sys::xsk_ring_cons__peek(ring, size, &mut idx)
+        xdpcore_sys::xsk_ring_cons__peek(ring, size, &mut idx)
+            + xdpcore_sys::xsk_ring_cons__peek(ring, size, &mut idx)
     };
 
     // One cancel, after both peeks. Cancelling between them would
@@ -66,7 +66,7 @@ pub(crate) unsafe fn cons_nb_avail_exact(ring: *mut xsk_ring_cons) -> u32 {
     // consumer position, and the cancel gives back exactly what
     // the peeks took, so a following consume still hands out
     // every entry from the first.
-    unsafe { libxdp_sys::xsk_ring_cons__cancel(ring, n) };
+    unsafe { xdpcore_sys::xsk_ring_cons__cancel(ring, n) };
 
     n
 }
@@ -256,7 +256,7 @@ unsafe impl Send for XskRingProdHandle {}
 
 #[cfg(test)]
 mod tests {
-    use libxdp_sys::{
+    use xdpcore_sys::{
         xdp_desc, xsk_ring_cons__peek, xsk_ring_cons__release, xsk_ring_prod__reserve,
         xsk_ring_prod__submit,
     };

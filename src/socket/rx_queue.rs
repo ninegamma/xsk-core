@@ -52,7 +52,7 @@ impl RxQueue {
 
         let mut idx = 0;
 
-        let cnt = unsafe { libxdp_sys::xsk_ring_cons__peek(self.ring.as_ptr(), nb, &mut idx) };
+        let cnt = unsafe { xdpcore_sys::xsk_ring_cons__peek(self.ring.as_ptr(), nb, &mut idx) };
 
         if cnt > 0 {
             // SAFETY: peek returned `cnt` descriptors beginning at `idx`, and
@@ -60,7 +60,7 @@ impl RxQueue {
             // descriptors are copied and released below.
             unsafe { copy_rx_descs(self.ring.as_ptr(), idx, &mut descs[..cnt as usize]) };
 
-            unsafe { libxdp_sys::xsk_ring_cons__release(self.ring.as_ptr(), cnt) };
+            unsafe { xdpcore_sys::xsk_ring_cons__release(self.ring.as_ptr(), cnt) };
         }
 
         cnt as usize
@@ -77,15 +77,15 @@ impl RxQueue {
     pub unsafe fn consume_one(&mut self, desc: &mut FrameDesc) -> usize {
         let mut idx = 0;
 
-        let cnt = unsafe { libxdp_sys::xsk_ring_cons__peek(self.ring.as_ptr(), 1, &mut idx) };
+        let cnt = unsafe { xdpcore_sys::xsk_ring_cons__peek(self.ring.as_ptr(), 1, &mut idx) };
 
         if cnt > 0 {
             let recv_pkt_desc =
-                unsafe { libxdp_sys::xsk_ring_cons__rx_desc(self.ring.as_ptr(), idx) };
+                unsafe { xdpcore_sys::xsk_ring_cons__rx_desc(self.ring.as_ptr(), idx) };
 
             *desc = FrameDesc::read_xdp_desc(unsafe { &*recv_pkt_desc });
 
-            unsafe { libxdp_sys::xsk_ring_cons__release(self.ring.as_ptr(), cnt) };
+            unsafe { xdpcore_sys::xsk_ring_cons__release(self.ring.as_ptr(), cnt) };
         }
 
         cnt as usize
@@ -147,7 +147,7 @@ impl RxQueue {
     pub fn nb_avail(&mut self, nb: u32) -> u32 {
         // SAFETY: the ring is initialised and `&mut self` excludes
         // any other access to it.
-        unsafe { libxdp_sys::xsk_cons_nb_avail(self.ring.as_ptr(), nb) }
+        unsafe { xdpcore_sys::xsk_cons_nb_avail(self.ring.as_ptr(), nb) }
     }
 
     /// The number of entries ready to be consumed.
@@ -188,13 +188,13 @@ impl RxQueue {
 /// The ring is power-of-two sized, so `mask` maps the absolute consumer index
 /// to the first entry. At most two contiguous ranges are needed for a batch.
 #[inline]
-unsafe fn copy_rx_descs(ring: *mut libxdp_sys::xsk_ring_cons, idx: u32, dst: &mut [FrameDesc]) {
+unsafe fn copy_rx_descs(ring: *mut xdpcore_sys::xsk_ring_cons, idx: u32, dst: &mut [FrameDesc]) {
     let mask = unsafe { (*ring).mask };
     let size = unsafe { (*ring).size };
     let start = idx & mask;
     let first_count = (size - start).min(dst.len() as u32) as usize;
     let second_count = dst.len() - first_count;
-    let ring_descs = unsafe { (*ring).ring.cast::<libxdp_sys::xdp_desc>() };
+    let ring_descs = unsafe { (*ring).ring.cast::<xdpcore_sys::xdp_desc>() };
 
     // SAFETY: `peek` guarantees that the ring contains the requested
     // descriptors. The first and second ranges are contiguous and together
@@ -223,28 +223,28 @@ mod tests {
     #[test]
     fn copy_rx_descs_copies_across_ring_wrap() {
         let mut ring_descs = [
-            libxdp_sys::xdp_desc {
+            xdpcore_sys::xdp_desc {
                 addr: 10,
                 len: 11,
                 options: 12,
             },
-            libxdp_sys::xdp_desc {
+            xdpcore_sys::xdp_desc {
                 addr: 20,
                 len: 21,
                 options: 22,
             },
-            libxdp_sys::xdp_desc {
+            xdpcore_sys::xdp_desc {
                 addr: 30,
                 len: 31,
                 options: 32,
             },
-            libxdp_sys::xdp_desc {
+            xdpcore_sys::xdp_desc {
                 addr: 40,
                 len: 41,
                 options: 42,
             },
         ];
-        let ring = libxdp_sys::xsk_ring_cons {
+        let ring = xdpcore_sys::xsk_ring_cons {
             cached_prod: 0,
             cached_cons: 0,
             mask: 3,

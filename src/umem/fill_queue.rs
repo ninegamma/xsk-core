@@ -76,14 +76,14 @@ impl FillQueue {
     pub unsafe fn produce_one(&mut self, addr: &u64) -> usize {
         let mut idx = 0;
 
-        let cnt = unsafe { libxdp_sys::xsk_ring_prod__reserve(self.ring.as_ptr(), 1, &mut idx) };
+        let cnt = unsafe { xdpcore_sys::xsk_ring_prod__reserve(self.ring.as_ptr(), 1, &mut idx) };
 
         if cnt > 0 {
             unsafe {
-                *libxdp_sys::xsk_ring_prod__fill_addr(self.ring.as_ptr(), idx) = *addr
+                *xdpcore_sys::xsk_ring_prod__fill_addr(self.ring.as_ptr(), idx) = *addr
             };
 
-            unsafe { libxdp_sys::xsk_ring_prod__submit(self.ring.as_ptr(), cnt) };
+            unsafe { xdpcore_sys::xsk_ring_prod__submit(self.ring.as_ptr(), cnt) };
         }
 
         cnt as usize
@@ -157,7 +157,7 @@ impl FillQueue {
     pub fn nb_free(&mut self, nb: u32) -> u32 {
         // SAFETY: the ring is initialised and `&mut self` excludes
         // any other access to it.
-        unsafe { libxdp_sys::xsk_prod_nb_free(self.ring.as_ptr(), nb) }
+        unsafe { xdpcore_sys::xsk_prod_nb_free(self.ring.as_ptr(), nb) }
     }
 
     /// The number of free slots on the ring.
@@ -194,11 +194,11 @@ impl FillQueue {
     /// explanation.
     ///
     /// [`produce_and_wakeup`]: Self::produce_and_wakeup
-    /// [`XDP_USE_NEED_WAKEUP`]: libxdp_sys::XDP_USE_NEED_WAKEUP
+    /// [`XDP_USE_NEED_WAKEUP`]: xdpcore_sys::XDP_USE_NEED_WAKEUP
     /// [`wakeup`]: Self::wakeup
     #[inline]
     pub fn needs_wakeup(&self) -> bool {
-        unsafe { libxdp_sys::xsk_ring_prod__needs_wakeup(self.ring.as_ptr()) != 0 }
+        unsafe { xdpcore_sys::xsk_ring_prod__needs_wakeup(self.ring.as_ptr()) != 0 }
     }
 }
 
@@ -215,10 +215,10 @@ pub(crate) unsafe fn produce_on_ring(ring: &mut XskRingProd, addrs: &[u64]) -> u
     }
 
     let mut idx = 0;
-    let cnt = unsafe { libxdp_sys::xsk_ring_prod__reserve(ring.as_ptr(), nb, &mut idx) };
+    let cnt = unsafe { xdpcore_sys::xsk_ring_prod__reserve(ring.as_ptr(), nb, &mut idx) };
     if cnt > 0 {
         unsafe { copy_fill_addrs(ring.as_ptr(), idx, &addrs[..cnt as usize]) };
-        unsafe { libxdp_sys::xsk_ring_prod__submit(ring.as_ptr(), cnt) };
+        unsafe { xdpcore_sys::xsk_ring_prod__submit(ring.as_ptr(), cnt) };
     }
     cnt as usize
 }
@@ -226,7 +226,7 @@ pub(crate) unsafe fn produce_on_ring(ring: &mut XskRingProd, addrs: &[u64]) -> u
 /// Copies a batch of frame addresses into the fill ring while handling
 /// wrap-around once. At most two contiguous destination ranges are needed.
 #[inline]
-unsafe fn copy_fill_addrs(ring: *mut libxdp_sys::xsk_ring_prod, idx: u32, src: &[u64]) {
+unsafe fn copy_fill_addrs(ring: *mut xdpcore_sys::xsk_ring_prod, idx: u32, src: &[u64]) {
     let mask = unsafe { (*ring).mask };
     let size = unsafe { (*ring).size };
     let start = (idx & mask) as usize;
@@ -256,7 +256,7 @@ mod tests {
     #[test]
     fn copy_fill_addrs_copies_across_ring_wrap() {
         let mut ring_addrs = [0_u64; 4];
-        let ring = libxdp_sys::xsk_ring_prod {
+        let ring = xdpcore_sys::xsk_ring_prod {
             cached_prod: 0,
             cached_cons: 0,
             mask: 3,

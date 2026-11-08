@@ -1,4 +1,5 @@
 /target
+/xdpcore-sys/tools/bindgen/target
 Cargo.lock
 perf*
 *.svg

@@ -24,6 +24,17 @@ pub struct FrameDesc {
     pub(crate) options: u32,
 }
 
+// Descriptor batches are copied without field conversions. Fail compilation if
+// the owned FFI declarations ever diverge from this layout.
+const _: () = {
+    use std::mem::{align_of, offset_of, size_of};
+    assert!(size_of::<FrameDesc>() == size_of::<xdpcore_sys::xdp_desc>());
+    assert!(align_of::<FrameDesc>() == align_of::<xdpcore_sys::xdp_desc>());
+    assert!(offset_of!(FrameDesc, addr) == offset_of!(xdpcore_sys::xdp_desc, addr));
+    assert!(offset_of!(FrameDesc, length) == offset_of!(xdpcore_sys::xdp_desc, len));
+    assert!(offset_of!(FrameDesc, options) == offset_of!(xdpcore_sys::xdp_desc, options));
+};
+
 impl FrameDesc {
     /// Creates a new frame descriptor.
     ///
@@ -83,31 +94,31 @@ impl FrameDesc {
     }
 
     #[inline]
-    pub(crate) fn write_xdp_desc(&self, desc: &mut libxdp_sys::xdp_desc) {
+    pub(crate) fn write_xdp_desc(&self, desc: &mut xdpcore_sys::xdp_desc) {
         // SAFETY: FrameDesc is explicitly repr(C) with a field layout, size,
-        // and alignment that match libxdp_sys::xdp_desc exactly. Both references
+        // and alignment that match xdpcore_sys::xdp_desc exactly. Both references
         // point to valid, properly aligned memory of size equal to one xdp_desc,
         // and the mutable reference to desc guarantees exclusive write access
         // without data races.
         unsafe {
             std::ptr::copy_nonoverlapping(
-                self as *const FrameDesc as *const libxdp_sys::xdp_desc,
-                desc as *mut libxdp_sys::xdp_desc,
+                self as *const FrameDesc as *const xdpcore_sys::xdp_desc,
+                desc as *mut xdpcore_sys::xdp_desc,
                 1,
             );
         }
     }
 
     #[inline]
-    pub(crate) fn read_xdp_desc(desc: &libxdp_sys::xdp_desc) -> Self {
+    pub(crate) fn read_xdp_desc(desc: &xdpcore_sys::xdp_desc) -> Self {
         let mut frame_desc = Self::default();
         // SAFETY: FrameDesc is explicitly repr(C) with a field layout, size,
-        // and alignment that match libxdp_sys::xdp_desc exactly. Both pointers
+        // and alignment that match xdpcore_sys::xdp_desc exactly. Both pointers
         // point to valid, properly aligned memory of size equal to one xdp_desc,
         // and the source reference guarantees valid read access without data races.
         unsafe {
             std::ptr::copy_nonoverlapping(
-                desc as *const libxdp_sys::xdp_desc as *const FrameDesc,
+                desc as *const xdpcore_sys::xdp_desc as *const FrameDesc,
                 &mut frame_desc as *mut FrameDesc,
                 1,
             );
@@ -123,7 +134,7 @@ impl FrameDesc {
     /// descriptors. The descriptor layouts must remain identical.
     #[inline]
     pub(crate) unsafe fn read_xdp_desc_slice(
-        src: *const libxdp_sys::xdp_desc,
+        src: *const xdpcore_sys::xdp_desc,
         dst: *mut Self,
         count: usize,
     ) {

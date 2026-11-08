@@ -14,7 +14,7 @@ pub(crate) use fill_queue::produce_on_ring;
 mod comp_queue;
 pub use comp_queue::CompQueue;
 
-use libxdp_sys::{xsk_socket, xsk_umem};
+use xdpcore_sys::{xsk_socket, xsk_umem};
 use log::error;
 use std::{
     error::Error,
@@ -101,7 +101,7 @@ impl Drop for UmemInner {
         // UMEM has not been deleted already, and everything libxdp is
         // about to dereference is a field of this struct, so none of
         // it has been dropped yet.
-        let err = unsafe { libxdp_sys::xsk_umem__delete(self.as_mut_ptr()) };
+        let err = unsafe { xdpcore_sys::xsk_umem__delete(self.as_mut_ptr()) };
 
         if err != 0 {
             error!(
@@ -149,7 +149,7 @@ impl Umem {
         let cq = XskRingCons::default();
 
         let err = unsafe {
-            libxdp_sys::xsk_umem__create(
+            xdpcore_sys::xsk_umem__create(
                 &mut umem_ptr,
                 mem.as_ptr(),
                 mem.len() as u64,
@@ -232,7 +232,7 @@ impl Umem {
         let cq = XskRingCons::default();
 
         let umem_ptr = unsafe {
-            libxdp_sys::xsk_umem__create_opts(
+            xdpcore_sys::xsk_umem__create_opts(
                 mem.as_ptr(),
                 fq.as_ptr(),
                 cq.as_ptr(),
@@ -388,7 +388,7 @@ impl Umem {
         let _guard = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
 
         // SAFETY: guaranteed by this function's contract.
-        unsafe { libxdp_sys::xsk_socket__delete(ptr) };
+        unsafe { xdpcore_sys::xsk_socket__delete(ptr) };
     }
 
     /// Returns a raw pointer to the beginning of the UMEM buffer

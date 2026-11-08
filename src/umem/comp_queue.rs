@@ -63,7 +63,7 @@ impl CompQueue {
 
         let mut idx = 0;
 
-        let cnt = unsafe { libxdp_sys::xsk_ring_cons__peek(self.ring.as_ptr(), nb, &mut idx) };
+        let cnt = unsafe { xdpcore_sys::xsk_ring_cons__peek(self.ring.as_ptr(), nb, &mut idx) };
 
         if cnt > 0 {
             // SAFETY: peek returned `cnt` addresses beginning at `idx`, and
@@ -71,7 +71,7 @@ impl CompQueue {
             // addresses are copied and released below.
             unsafe { copy_comp_addrs(self.ring.as_ptr(), idx, &mut addrs[..cnt as usize]) };
 
-            unsafe { libxdp_sys::xsk_ring_cons__release(self.ring.as_ptr(), cnt) };
+            unsafe { xdpcore_sys::xsk_ring_cons__release(self.ring.as_ptr(), cnt) };
         }
 
         cnt as usize
@@ -89,12 +89,12 @@ impl CompQueue {
     pub unsafe fn consume_one(&mut self, addr: &mut u64) -> usize {
         let mut idx = 0;
 
-        let cnt = unsafe { libxdp_sys::xsk_ring_cons__peek(self.ring.as_ptr(), 1, &mut idx) };
+        let cnt = unsafe { xdpcore_sys::xsk_ring_cons__peek(self.ring.as_ptr(), 1, &mut idx) };
 
         if cnt > 0 {
-            *addr = unsafe { *libxdp_sys::xsk_ring_cons__comp_addr(self.ring.as_ptr(), idx) };
+            *addr = unsafe { *xdpcore_sys::xsk_ring_cons__comp_addr(self.ring.as_ptr(), idx) };
 
-            unsafe { libxdp_sys::xsk_ring_cons__release(self.ring.as_ptr(), cnt) };
+            unsafe { xdpcore_sys::xsk_ring_cons__release(self.ring.as_ptr(), cnt) };
         }
 
         cnt as usize
@@ -116,7 +116,7 @@ impl CompQueue {
     pub fn nb_avail(&mut self, nb: u32) -> u32 {
         // SAFETY: the ring is initialised and `&mut self` excludes
         // any other access to it.
-        unsafe { libxdp_sys::xsk_cons_nb_avail(self.ring.as_ptr(), nb) }
+        unsafe { xdpcore_sys::xsk_cons_nb_avail(self.ring.as_ptr(), nb) }
     }
 
     /// The number of entries ready to be consumed.
@@ -139,7 +139,7 @@ impl CompQueue {
 /// are initialized while copying into the strided `FrameDesc` destinations.
 #[inline]
 unsafe fn copy_comp_addrs(
-    ring: *mut libxdp_sys::xsk_ring_cons,
+    ring: *mut xdpcore_sys::xsk_ring_cons,
     idx: u32,
     dst: &mut [u64],
 ) {
@@ -174,7 +174,7 @@ mod tests {
     #[test]
     fn copy_comp_addrs_copies_across_ring_wrap() {
         let mut ring_addrs: [u64; 4] = [10, 20, 30, 40];
-        let ring = libxdp_sys::xsk_ring_cons {
+        let ring = xdpcore_sys::xsk_ring_cons {
             cached_prod: 0,
             cached_cons: 0,
             mask: 3,

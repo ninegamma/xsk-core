@@ -8,7 +8,7 @@ existing code can continue to use `Umem`, `Socket`, fill queues, completion
 queues, receive queues, and transmit queues in the same general way.
 
 The main architectural change is the descriptor model. `FrameDesc` is intended
-to be only a thin Rust layer over libxdp's `libxdp_sys::xsk` descriptor API.
+to be only a thin Rust layer over libxdp's `xdpcore_sys::xsk` descriptor API.
 It carries the same essential descriptor data that is exchanged with the
 kernel:
 
@@ -95,12 +95,21 @@ The ownership rules of AF_XDP still apply:
 
 ## Building
 
+Native libxdp integration is provided by the owned [`xdpcore-sys`](xdpcore-sys)
+package. It builds pinned upstream libxdp sources against Cargo's libbpf-sys
+1.7 or later compatible 1.x version, without a libxdp-sys patch. See its README
+for native prerequisites, supported targets, and source/binding updates.
+
 ```text
 cargo build
 cargo test --lib
+cargo test -p xdpcore-sys
 ```
 
-Building and using AF_XDP sockets requires Linux, libxdp, and the appropriate
+The legacy `use_cc_build` feature remains accepted for compatibility; the native
+build now always uses `cc` and writes only into Cargo's `OUT_DIR`.
+
+Building and using AF_XDP sockets requires Linux and the appropriate
 kernel and interface configuration. Operations that create veth pairs or bind
 AF_XDP sockets may require elevated privileges.
 

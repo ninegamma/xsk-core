@@ -1,5 +1,5 @@
 use bitflags::bitflags;
-use libxdp_sys::{
+use xdpcore_sys::{
     XSK_RING_CONS__DEFAULT_NUM_DESCS, XSK_RING_PROD__DEFAULT_NUM_DESCS, xsk_socket_config,
     xsk_socket_config__bindgen_ty_1,
 };

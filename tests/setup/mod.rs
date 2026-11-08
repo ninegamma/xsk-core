@@ -91,10 +91,12 @@ pub fn build_socket_and_umem(
         Socket::new(socket_config, &umem, if_name, queue_id).expect("failed to build socket")
     };
 
-    let (fq, cq) = fq_and_cq.expect(&format!(
-        "missing fill and comp queue - interface {:?} may already be bound to",
-        if_name
-    ));
+    let (fq, cq) = fq_and_cq.unwrap_or_else(|| {
+        panic!(
+            "missing fill and comp queue - interface {:?} may already be bound to",
+            if_name
+        )
+    });
 
     Xsk {
         umem,

@@ -18,8 +18,8 @@
 #
 #     CARGO_ARGS=--features=use_cc_build ./run_all_tests.sh
 #
-# runs the suite against a libxdp built by cc rather than by its
-# Makefile.
+# remains accepted for compatibility. libxdp is now always built
+# through xdpcore-sys using cc, with all outputs under OUT_DIR.
 
 set -uo pipefail
 

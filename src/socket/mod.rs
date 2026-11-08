@@ -9,7 +9,7 @@ pub use rx_queue::RxQueue;
 mod tx_queue;
 pub use tx_queue::TxQueue;
 
-use libxdp_sys::xsk_socket;
+use xdpcore_sys::xsk_socket;
 use std::{
     error::Error,
     fmt, io,
@@ -190,7 +190,7 @@ impl Socket {
                 if !initial_addrs.is_empty() && !fq.is_ring_null() {
                     prefilled_addrs = umem::produce_on_ring(fq, initial_addrs);
                 }
-                libxdp_sys::xsk_socket__create_shared(
+                xdpcore_sys::xsk_socket__create_shared(
                     &mut socket_ptr,
                     if_name.as_cstr().as_ptr(),
                     queue_id,
@@ -222,7 +222,7 @@ impl Socket {
             }
         };
 
-        let fd = unsafe { libxdp_sys::xsk_socket__fd(inner.as_ptr()) };
+        let fd = unsafe { xdpcore_sys::xsk_socket__fd(inner.as_ptr()) };
 
         if fd < 0 {
             return Err(SocketCreateError {

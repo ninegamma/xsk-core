@@ -57,12 +57,12 @@ impl TxQueue {
 
         let mut idx = 0;
 
-        let cnt = unsafe { libxdp_sys::xsk_ring_prod__reserve(self.ring.as_ptr(), nb, &mut idx) };
+        let cnt = unsafe { xdpcore_sys::xsk_ring_prod__reserve(self.ring.as_ptr(), nb, &mut idx) };
 
         if cnt > 0 {
             for desc in descs.iter().take(cnt as usize) {
                 let send_pkt_desc =
-                    unsafe { libxdp_sys::xsk_ring_prod__tx_desc(self.ring.as_ptr(), idx) };
+                    unsafe { xdpcore_sys::xsk_ring_prod__tx_desc(self.ring.as_ptr(), idx) };
 
                 // SAFETY: unsafe contract of this function guarantees
                 // `desc` describes a frame belonging to the same UMEM as
@@ -72,7 +72,7 @@ impl TxQueue {
                 idx = idx.wrapping_add(1);
             }
 
-            unsafe { libxdp_sys::xsk_ring_prod__submit(self.ring.as_ptr(), cnt) };
+            unsafe { xdpcore_sys::xsk_ring_prod__submit(self.ring.as_ptr(), cnt) };
         }
 
         cnt as usize
@@ -89,18 +89,18 @@ impl TxQueue {
     pub unsafe fn produce_one(&mut self, desc: &FrameDesc) -> usize {
         let mut idx = 0;
 
-        let cnt = unsafe { libxdp_sys::xsk_ring_prod__reserve(self.ring.as_ptr(), 1, &mut idx) };
+        let cnt = unsafe { xdpcore_sys::xsk_ring_prod__reserve(self.ring.as_ptr(), 1, &mut idx) };
 
         if cnt > 0 {
             let send_pkt_desc =
-                unsafe { libxdp_sys::xsk_ring_prod__tx_desc(self.ring.as_ptr(), idx) };
+                unsafe { xdpcore_sys::xsk_ring_prod__tx_desc(self.ring.as_ptr(), idx) };
 
             // SAFETY: unsafe contract of this function guarantees
             // `desc` describes a frame belonging to the same UMEM as
             // this queue.
             unsafe { desc.write_xdp_desc(&mut *send_pkt_desc) };
 
-            unsafe { libxdp_sys::xsk_ring_prod__submit(self.ring.as_ptr(), cnt) };
+            unsafe { xdpcore_sys::xsk_ring_prod__submit(self.ring.as_ptr(), cnt) };
         }
 
         cnt as usize
@@ -163,7 +163,7 @@ impl TxQueue {
     pub fn nb_free(&mut self, nb: u32) -> u32 {
         // SAFETY: the ring is initialised and `&mut self` excludes
         // any other access to it.
-        unsafe { libxdp_sys::xsk_prod_nb_free(self.ring.as_ptr(), nb) }
+        unsafe { xdpcore_sys::xsk_prod_nb_free(self.ring.as_ptr(), nb) }
     }
 
     /// The number of free slots on the ring.
@@ -215,12 +215,12 @@ impl TxQueue {
     /// See [`produce_and_wakeup`] for link to docs with further
     /// explanation.
     ///
-    /// [`XDP_USE_NEED_WAKEUP`]: libxdp_sys::XDP_USE_NEED_WAKEUP
+    /// [`XDP_USE_NEED_WAKEUP`]: xdpcore_sys::XDP_USE_NEED_WAKEUP
     /// [`wakeup`]: Self::wakeup
     /// [`produce_and_wakeup`]: Self::produce_and_wakeup
     #[inline]
     pub fn needs_wakeup(&self) -> bool {
-        unsafe { libxdp_sys::xsk_ring_prod__needs_wakeup(self.ring.as_ptr()) != 0 }
+        unsafe { xdpcore_sys::xsk_ring_prod__needs_wakeup(self.ring.as_ptr()) != 0 }
     }
 
     /// Polls the socket, returning `true` if it is ready to write.

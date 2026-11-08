@@ -21,7 +21,7 @@ impl VethDev {
     }
 
     async fn set_status(&self, status: LinkStatus) -> anyhow::Result<()> {
-        Ok(match status {
+        match status {
             LinkStatus::Up => {
                 self.handle
                     .link()
@@ -36,7 +36,8 @@ impl VethDev {
                     .execute()
                     .await?;
             }
-        })
+        }
+        Ok(())
     }
 
     async fn set_addr(&self, addr: Vec<u8>) -> anyhow::Result<()> {
@@ -54,7 +55,7 @@ impl VethDev {
             .address()
             .add(
                 self.index,
-                IpAddr::V4(ip_addr.addr.clone()),
+                IpAddr::V4(ip_addr.addr),
                 ip_addr.prefix_len,
             )
             .execute()
@@ -157,7 +158,7 @@ async fn get_link_index(handle: &Handle, name: &str) -> anyhow::Result<u32> {
         .execute()
         .try_next()
         .await?
-        .expect(format!("no link with name {} found", name).as_str())
+        .unwrap_or_else(|| panic!("no link with name {} found", name))
         .header
         .index)
 }
@@ -209,21 +210,23 @@ pub async fn build_veth_pair(
         .execute()
         .await?;
 
-    let dev1_index = get_link_index(&handle, &dev1_config.if_name).await.expect(
-        format!(
-            "failed to retrieve index for dev1, delete link manually: 'sudo ip link del {}'",
-            dev1_config.if_name
-        )
-        .as_str(),
-    );
+    let dev1_index = get_link_index(&handle, &dev1_config.if_name)
+        .await
+        .unwrap_or_else(|error| {
+            panic!(
+                "failed to retrieve index for dev1, delete link manually: 'sudo ip link del {}': {error:?}",
+                dev1_config.if_name
+            )
+        });
 
-    let dev2_index = get_link_index(&handle, &dev2_config.if_name).await.expect(
-        format!(
-            "failed to retrieve index for dev2, delete link manually: 'sudo ip link del {}'",
-            dev1_config.if_name
-        )
-        .as_str(),
-    );
+    let dev2_index = get_link_index(&handle, &dev2_config.if_name)
+        .await
+        .unwrap_or_else(|error| {
+            panic!(
+                "failed to retrieve index for dev2, delete link manually: 'sudo ip link del {}': {error:?}",
+                dev1_config.if_name
+            )
+        });
 
     let veth_pair = VethPair {
         dev1: VethDev {

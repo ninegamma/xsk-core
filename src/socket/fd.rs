@@ -1,7 +1,7 @@
 //! File descriptor utilities.
 
 use libc::{EINTR, POLLIN, POLLOUT, SOL_XDP};
-use libxdp_sys::{XDP_STATISTICS, xdp_statistics};
+use xdpcore_sys::{XDP_STATISTICS, xdp_statistics};
 use std::{
     fmt, io, mem,
     os::unix::prelude::{AsRawFd, RawFd},

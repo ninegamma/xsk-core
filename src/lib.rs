@@ -9,7 +9,7 @@
 //! general way.
 //!
 //! The main architectural change is the descriptor model. [`FrameDesc`] is
-//! intended to be only a thin Rust layer over libxdp's `libxdp_sys::xsk`
+//! intended to be only a thin Rust layer over libxdp's `xdpcore_sys::xsk`
 //! descriptor API. It carries the same essential descriptor data that is
 //! exchanged with the kernel:
 //!
