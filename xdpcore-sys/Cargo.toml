@@ -1,0 +1,20 @@
+[package]
+name = "xdpcore-sys"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Minimal AF_XDP FFI bindings and build integration for upstream libxdp"
+license = "BSD-2-Clause AND GPL-2.0-only"
+repository = "https://github.com/ninegamma/xsk-core"
+readme = "README.md"
+links = "xdp"
+include = ["Cargo.toml", "build.rs", "bindings.h", "src/**", "tests/**", "vendor/**", "tools/**", "README.md", "LICENSE*"]
+
+[dependencies]
+# One Cargo-managed provider for both libxdp and applications using libbpf-rs.
+# Build its headers and archive together; never discover another host libbpf.
+libbpf-sys = { version = "1.7", default-features = false, features = ["vendored-libbpf"] }
+
+[build-dependencies]
+cc = "1.2"
+shlex = "1.3"
