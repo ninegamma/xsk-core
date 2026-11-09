@@ -5,8 +5,7 @@ The safe AF_XDP socket, UMEM, and queue APIs live in the parent `xsk-core` crate
 
 ## Native libraries and compatibility
 
-- Upstream **libxdp 1.6.0**, commit
-  `2ac18faa664208e82eb1584426e52a1c6da51d35`, is built from the unmodified source
+- Upstream **libxdp** is built from the unmodified source
   subset in `vendor/xdp-tools`.
 - **libbpf-sys 1.7 or a compatible later 1.x version** provides libbpf and its
   headers. The crate enables `vendored-libbpf`, using the same Cargo-managed
@@ -70,17 +69,23 @@ imported file. Verify it without any network access from this package directory:
 python3 tools/vendor.py --check
 ```
 
-To import a new revision from an existing upstream Git checkout:
+To import a new upstream revision, the script fetches and checks out that
+revision in a temporary Git repository:
 
 ```sh
-python3 tools/vendor.py --source /path/to/xdp-tools --revision v1.6.0
+python3 tools/vendor.py --revision REVISION
 ```
+
+Add `--generate-bindings` to regenerate `src/bindings.rs` during the same update.
+The script selects the include path from the latest Cargo build of `xdpcore-sys`,
+running `cargo check` first if no build output is available. Pass `--bpf-include`
+only when you need to select a particular build's include directory. Generation
+requires libclang.
 
 The import reads committed Git blobs, excluding local build products and the
 libbpf submodule. Review the upstream changes and the libbpf capability defines
-in `build.rs`, then regenerate the narrow Rust declarations using the
-repository's maintainer tool in `tools/bindgen` (which requires libclang). Normal package
-builds use the checked-in declarations and do not require bindgen or libclang.
+in `build.rs`. Normal package builds use the checked-in declarations and do not
+require bindgen or libclang.
 
 Before releasing an update, run ABI/ring tests, xsk-core's socket lifetime
 tests, Wabrix builds, and throughput/drop/CPU comparisons on supported hardware.

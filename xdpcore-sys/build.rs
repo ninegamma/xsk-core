@@ -6,7 +6,7 @@ use std::{
     process::{Command, Output},
 };
 
-const LIBXDP_VERSION: &str = "1.6.0";
+const LIBXDP_VERSION: &str = "1.6.3";
 
 // Every capability below is present in our minimum supported libbpf (1.7).
 // Keep this list aligned with the compatibility branches in upstream libxdp.c.
