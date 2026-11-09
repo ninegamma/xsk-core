@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/xdp-project/xdp-tools",
-  "revision": "2ac18faa664208e82eb1584426e52a1c6da51d35",
-  "version": "1.6.0",
+  "revision": "8fbad9f0af621a22aa87ff2520b3735915b1f0fd",
+  "version": "1.6.3",
   "sha256": {
     "LICENSE": "734d0b7377af175d51c5ae07c061037862eb8d0d5a335544cfef9861c1895a2a",
     "LICENSES/BSD-2-Clause": "6313108c23efffa36948f8b2cff1560a5935373b527b0e1a837cc77e6ed1bacd",
@@ -30,14 +30,14 @@
     "headers/xdp/xsk.h": "f193a049ddf114b9cb09e310c367b21199bbefd5805fa3663034d7cddb22b96c",
     "lib/libxdp/bpf_instr.h": "02d430f72fafbe70e0935c39995a11e32d09b1ad5d77276c90c449140e0061c0",
     "lib/libxdp/compat.h": "63a4a58bdf1dd740d5bd44243d5b403e12a857de52d1e92def7b2f4cc954397c",
-    "lib/libxdp/libxdp.c": "5bb164c123991c163aa621de284a4cfd901b597268a877e55f1c297b801794c5",
+    "lib/libxdp/libxdp.c": "fe3f207af7fb4697d13ca58375223a0b833bed81ce9b5f02821aa1136c843774",
     "lib/libxdp/libxdp.map": "b0c7922447d5dbf6f1b63256df9ee54330ddd87d3e9c30cf1d00d740ec341009",
-    "lib/libxdp/libxdp_internal.h": "165dbffe490de9953a89493931b50f4f79054054fb2570d8c126d1a8423f0e6e",
+    "lib/libxdp/libxdp_internal.h": "bbeff3864ec1aa82847ae96a128b8287779d045e0947d1c69dda50cc8d1ac4be",
     "lib/libxdp/xdp-dispatcher.c.in": "535e994f1604f3dc59bd4d2336c93133a40d80ed5fcc9ac556f51f4423480611",
-    "lib/libxdp/xsk.c": "d1bb98316d8ea04e3bf973f810f6180d6afed8ee1bfcf3d37bb1765b21867a31",
+    "lib/libxdp/xsk.c": "155cc3a027c87e202a44f2d6fff2e9b05bcb2b5f9efd70cb5db9ad0de6de62f8",
     "lib/libxdp/xsk_def_xdp_prog.c": "f6e909aaa3bb275b2e4ea8b69a6e13853e1bea58a8bf0aca4b00fccf8c90f54e",
     "lib/libxdp/xsk_def_xdp_prog.h": "a038bd87d82865987cf1cb720a5a4bd51cbc735e75187c26f1885aecdef33c34",
     "lib/libxdp/xsk_def_xdp_prog_5.3.c": "d867993081cfc991b2e60ebe408ec25b20ff2d35582e628ab32cdcde97625b4a",
-    "version.mk": "9bd7e1b35bef2d28dbb1321d0c6d2a3ee543ac7e143c34100b7c853ad7521143"
+    "version.mk": "f1df21af67d79c8942bda1461318a932c84a5fbff52bb850579a1729bb6701e2"
   }
 }

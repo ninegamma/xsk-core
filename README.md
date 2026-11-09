@@ -7,6 +7,10 @@ binding. The UMEM and socket APIs remain largely unchanged from `xsk-rs`, so
 existing code can continue to use `Umem`, `Socket`, fill queues, completion
 queues, receive queues, and transmit queues in the same general way.
 
+This fork replaces the external `libxdp-sys` dependency with its owned
+`xdpcore-sys` package. This avoids libbpf version clashes with other Cargo
+dependencies and makes it practical to adopt new `xdp-tools` releases quickly.
+
 The main architectural change is the descriptor model. `FrameDesc` is intended
 to be only a thin Rust layer over libxdp's `xdpcore_sys::xsk` descriptor API.
 It carries the same essential descriptor data that is exchanged with the
@@ -116,3 +120,22 @@ AF_XDP sockets may require elevated privileges.
 ## License
 
 This fork retains the MIT license of the original project. See [LICENSE](LICENSE).
+
+## Native build flow
+
+```mermaid
+flowchart TD
+    github["GitHub: xdp-project/xdp-tools"] --> vendor["tools/vendor.py<br/>fetches and imports a pinned revision"]
+    vendor --> xdp_src["Vendored libxdp C sources"]
+    vendor --> bpf_src["Vendored BPF program C sources"]
+    cargo["Cargo"] --> build["xdpcore-sys/build.rs"]
+    xdp_src --> build
+    bpf_src --> build
+    build --> xdp_archive["Static libxdp archive<br/>with embedded BPF objects"]
+    libbpf_sys["libbpf-sys builds vendored libbpf"] --> bpf_archive["Static libbpf archive"]
+    bindings["Rust FFI declarations<br/>src/bindings.rs"] --> sys["xdpcore-sys"]
+    xdp_archive --> sys
+    bpf_archive --> sys
+    sys --> system["System libelf, zlib, and libc"]
+    sys --> kernel["Linux AF_XDP kernel interface at runtime"]
+```

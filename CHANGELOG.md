@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.3.1] - 2026-11-09
+
+### Changed
+
+- Upgraded the vendored libxdp sources to 1.6.3 and synchronized the version
+  used by the native build.
+- Updated `vendor.py` to fetch upstream revisions itself and keep the build
+  version aligned with the imported sources.
+
+### Added
+
+- Added optional `--generate-bindings` support to `vendor.py`. It discovers the
+  libbpf include directory from Cargo build output and builds `xdpcore-sys` if
+  needed; `--bpf-include` can override the discovered path.
+
+## [0.3.0] - 2026-11-08
+
+### Changed
+
+- Replaced the external `libxdp-sys` dependency with the owned `xdpcore-sys`
+  crate. It builds vendored libxdp sources against Cargo-managed `libbpf-sys`,
+  avoiding conflicting libbpf versions in downstream workspaces.
+- Updated the AF_XDP FFI integration to use the owned bindings and native build.
+
+### Added
+
+- Added ABI and ring tests for the native bindings and AF_XDP ring behavior.
+- Added maintenance tools for updating vendored libxdp sources and regenerating
+  the checked-in Rust bindings.
+
 ## [0.2.1] - 2026-10-11
 
 ### Added
