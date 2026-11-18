@@ -123,9 +123,11 @@ impl ConfigBuilder {
         }
 
         // Widened before adding because each component is a `u32`.
+        // tx_metadata_len is part of the headroom,
+        // located at the end of the headroom immediately before the frame data.
+        // Therefore, it is not included in the total headroom calculation.
         let total_headroom = (XDP_PACKET_HEADROOM as u64)
-            + (self.config.frame_headroom as u64)
-            + (self.config.tx_metadata_len as u64);
+            + (self.config.frame_headroom as u64);
         self.config.size = frame_size as u64 * self.frame_count.get() as u64;
         if total_headroom >= frame_size as u64 {
             Err(ConfigBuildError {

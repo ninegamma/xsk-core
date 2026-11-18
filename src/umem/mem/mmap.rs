@@ -10,7 +10,7 @@ mod inner {
     use log::error;
     use std::{ffi::CString, os::fd::RawFd, ptr};
 
-    use super::*;
+    use super::{io, NonNull};
 
     /// An anonymous memory mapped region.
     #[derive(Debug)]
@@ -106,7 +106,7 @@ mod inner {
 mod inner {
     use std::mem::ManuallyDrop;
 
-    use super::*;
+    use super::{io, NonNull};
 
     #[derive(Debug)]
     struct VecParts<T> {
